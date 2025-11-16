@@ -112,6 +112,10 @@ int main(int argc, char** argv)
             msg.pop_back();
         }
 
+        if (!msg.empty()) {
+            std::cout << "[MakcuRelay] RX: " << msg << std::endl;
+        }
+
         if (msg.rfind("MOVE:", 0) == 0) {
             std::string rest = msg.substr(5);
             auto commaPos = rest.find(',');
