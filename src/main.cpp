@@ -112,12 +112,8 @@ int main(int argc, char** argv)
             msg.pop_back();
         }
 
-        if (!msg.empty()) {
-            std::cout << "[MakcuRelay] RX: " << msg << std::endl;
-        }
-
         // Simple UDP ping support: echo PING back as-is so the sender
-        // can measure round-trip latency.
+        // can measure round-trip latency. No per-packet logging to avoid jitter.
         if (msg.rfind("PING", 0) == 0) {
             sendto(sock, buffer, ret, 0,
                    reinterpret_cast<SOCKADDR*>(&from), fromLen);
