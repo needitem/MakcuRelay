@@ -316,27 +316,29 @@ std::string MakcuConnection::read()
 void MakcuConnection::click(int button)
 {
     if (button == 1) {
-        sendCommand("LC\n");
+        sendCommand("km.left(1)");
+        sendCommand("km.left(0)");
     } else if (button == 2) {
-        sendCommand("RC\n");
+        sendCommand("km.right(1)");
+        sendCommand("km.right(0)");
     }
 }
 
 void MakcuConnection::press(int button)
 {
     if (button == 1) {
-        sendCommand("LP\n");
+        sendCommand("km.left(1)");
     } else if (button == 2) {
-        sendCommand("RP\n");
+        sendCommand("km.right(1)");
     }
 }
 
 void MakcuConnection::release(int button)
 {
     if (button == 1) {
-        sendCommand("LR\n");
+        sendCommand("km.left(0)");
     } else if (button == 2) {
-        sendCommand("RR\n");
+        sendCommand("km.right(0)");
     }
 }
 
@@ -344,19 +346,20 @@ void MakcuConnection::move(int x, int y)
 {
     if (x == 0 && y == 0) return;
 
-    char command[32];
-    std::snprintf(command, sizeof(command), "M%d,%d\n", x, y);
+    char command[64];
+    std::snprintf(command, sizeof(command), "km.move(%d,%d)", x, y);
     sendCommand(std::string(command));
 }
 
 void MakcuConnection::send_stop()
 {
-    sendCommand("STOP\n");
+    // No-op for modern Makcu protocol – kept for API compatibility.
 }
 
 void MakcuConnection::sendCommand(const std::string& command)
 {
-    write(command);
+    // Makcu Python library sends ASCII commands terminated with CRLF.
+    write(command + "\r\n");
 }
 
 std::vector<int> MakcuConnection::splitValue(int value)
@@ -522,4 +525,3 @@ bool MakcuConnection::waitForAsyncOperation(OVERLAPPED* overlapped, DWORD timeou
 
     return false;
 }
-
