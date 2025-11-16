@@ -153,14 +153,15 @@ bool MakcuConnection::configureDCB(uint32_t baud_rate) {
     dcb_config_.fParity = FALSE;
     dcb_config_.fOutxCtsFlow = FALSE;
     dcb_config_.fOutxDsrFlow = FALSE;
-    dcb_config_.fDtrControl = DTR_CONTROL_DISABLE;
+    // Match pyserial defaults: no hardware handshake but DTR/RTS asserted
+    dcb_config_.fDtrControl = DTR_CONTROL_ENABLE;
     dcb_config_.fDsrSensitivity = FALSE;
     dcb_config_.fTXContinueOnXoff = FALSE;
     dcb_config_.fOutX = FALSE;
     dcb_config_.fInX = FALSE;
     dcb_config_.fErrorChar = FALSE;
     dcb_config_.fNull = FALSE;
-    dcb_config_.fRtsControl = RTS_CONTROL_DISABLE;
+    dcb_config_.fRtsControl = RTS_CONTROL_ENABLE;
     dcb_config_.fAbortOnError = FALSE;
 
     if (!SetCommState(serial_handle_, &dcb_config_)) {
