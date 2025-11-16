@@ -116,6 +116,14 @@ int main(int argc, char** argv)
             std::cout << "[MakcuRelay] RX: " << msg << std::endl;
         }
 
+        // Simple UDP ping support: echo PING back as-is so the sender
+        // can measure round-trip latency.
+        if (msg.rfind("PING", 0) == 0) {
+            sendto(sock, buffer, ret, 0,
+                   reinterpret_cast<SOCKADDR*>(&from), fromLen);
+            continue;
+        }
+
         if (msg.rfind("MOVE:", 0) == 0) {
             std::string rest = msg.substr(5);
             auto commaPos = rest.find(',');
