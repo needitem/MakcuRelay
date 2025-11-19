@@ -1,8 +1,15 @@
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
-
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <cstring>
+#endif
 
 #include <atomic>
 #include <csignal>
@@ -37,6 +44,7 @@ int main(int argc, char** argv)
     std::cout << "[MakcuRelay] COM port: " << comPort
               << ", UDP port: " << udpPort << std::endl;
 
+#ifdef _WIN32
     WSADATA wsaData;
     int wsaErr = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (wsaErr != 0) {
@@ -50,12 +58,20 @@ int main(int argc, char** argv)
         WSACleanup();
         return 1;
     }
+#else
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (sock < 0) {
+        std::cerr << "[MakcuRelay] socket() failed: " << strerror(errno) << std::endl;
+        return 1;
+    }
+#endif
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = htons(udpPort);
 
+#ifdef _WIN32
     if (bind(sock, reinterpret_cast<SOCKADDR*>(&addr), sizeof(addr)) == SOCKET_ERROR) {
         std::cerr << "[MakcuRelay] bind() failed: " << WSAGetLastError() << std::endl;
         closesocket(sock);
@@ -66,12 +82,28 @@ int main(int argc, char** argv)
     int timeoutMs = 50;
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
                reinterpret_cast<const char*>(&timeoutMs), sizeof(timeoutMs));
+#else
+    if (bind(sock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
+        std::cerr << "[MakcuRelay] bind() failed: " << strerror(errno) << std::endl;
+        close(sock);
+        return 1;
+    }
+
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 50000; // 50ms
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
 
     MakcuConnection makcu(comPort, 4000000);
     if (!makcu.isOpen()) {
         std::cerr << "[MakcuRelay] Failed to open Makcu on " << comPort << std::endl;
+#ifdef _WIN32
         closesocket(sock);
         WSACleanup();
+#else
+        close(sock);
+#endif
         return 1;
     }
 
@@ -85,6 +117,7 @@ int main(int argc, char** argv)
 
     while (g_running.load()) {
         sockaddr_in from{};
+#ifdef _WIN32
         int fromLen = sizeof(from);
         int ret = recvfrom(sock, buffer, sizeof(buffer) - 1, 0,
                            reinterpret_cast<SOCKADDR*>(&from), &fromLen);
@@ -100,6 +133,22 @@ int main(int argc, char** argv)
             std::cerr << "[MakcuRelay] recvfrom() error: " << err << std::endl;
             continue;
         }
+#else
+        socklen_t fromLen = sizeof(from);
+        ssize_t ret = recvfrom(sock, buffer, sizeof(buffer) - 1, 0,
+                               reinterpret_cast<struct sockaddr*>(&from), &fromLen);
+
+        if (ret < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                continue;
+            }
+            if (!g_running.load()) {
+                break;
+            }
+            std::cerr << "[MakcuRelay] recvfrom() error: " << strerror(errno) << std::endl;
+            continue;
+        }
+#endif
 
         if (ret <= 0) {
             continue;
@@ -115,8 +164,13 @@ int main(int argc, char** argv)
         // Simple UDP ping support: echo PING back as-is so the sender
         // can measure round-trip latency. No per-packet logging to avoid jitter.
         if (msg.rfind("PING", 0) == 0) {
+#ifdef _WIN32
             sendto(sock, buffer, ret, 0,
                    reinterpret_cast<SOCKADDR*>(&from), fromLen);
+#else
+            sendto(sock, buffer, ret, 0,
+                   reinterpret_cast<struct sockaddr*>(&from), fromLen);
+#endif
             continue;
         }
 
@@ -156,8 +210,12 @@ int main(int argc, char** argv)
         }
     }
 
+#ifdef _WIN32
     closesocket(sock);
     WSACleanup();
+#else
+    close(sock);
+#endif
 
     std::cout << "[MakcuRelay] Exiting.\n";
     return 0;

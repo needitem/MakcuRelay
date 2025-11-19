@@ -19,4 +19,7 @@ target_include_directories(MakcuRelay PRIVATE src)
 
 if (WIN32)
     target_link_libraries(MakcuRelay PRIVATE ws2_32)
+else()
+    # Linux: link pthread for std::thread
+    target_link_libraries(MakcuRelay PRIVATE pthread)
 endif()

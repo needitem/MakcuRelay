@@ -1,14 +1,18 @@
 #ifndef MAKCUCONNECTION_H
 #define MAKCUCONNECTION_H
 
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define _WINSOCKAPI_
 #include <windows.h>
+#endif
+
 #include <string>
 #include <thread>
 #include <atomic>
 #include <mutex>
 #include <vector>
+#include <cstdint>
 
 class MakcuConnection
 {
@@ -41,30 +45,36 @@ private:
     void processIncomingLine(const std::string& line);
 
     bool initializeMakcuConnection();
+#ifdef _WIN32
     bool configureDCB(uint32_t baud_rate);
     bool configureTimeouts();
+    bool writeAsync(const void* data, DWORD size);
+    bool readAsync(void* buffer, DWORD size, DWORD* bytesRead);
+    bool waitForAsyncOperation(OVERLAPPED* overlapped, DWORD timeout_ms = 100);
+#else
+    bool configureBaudRate(int fd, uint32_t baud_rate);
+#endif
     void cleanup();
     void closeHandle();
     void safeMakcuClose();
 
-    bool writeAsync(const void* data, DWORD size);
-    bool readAsync(void* buffer, DWORD size, DWORD* bytesRead);
-    bool waitForAsyncOperation(OVERLAPPED* overlapped, DWORD timeout_ms = 100);
-
 private:
+#ifdef _WIN32
     HANDLE serial_handle_;
     DCB dcb_config_;
     COMMTIMEOUTS timeouts_;
+    OVERLAPPED write_overlapped_;
+    OVERLAPPED read_overlapped_;
+    HANDLE write_event_;
+    HANDLE read_event_;
+#else
+    int serial_fd_;
+#endif
     std::atomic<bool> is_open_;
     std::atomic<bool> listening_;
     std::thread       listening_thread_;
     std::mutex        write_mutex_;
     std::string       port_name_;
-
-    OVERLAPPED write_overlapped_;
-    OVERLAPPED read_overlapped_;
-    HANDLE write_event_;
-    HANDLE read_event_;
 };
 
 #endif // MAKCUCONNECTION_H

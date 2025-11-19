@@ -1,6 +1,14 @@
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define _WINSOCKAPI_
 #include <windows.h>
+#else
+#include <fcntl.h>
+#include <unistd.h>
+#include <termios.h>
+#include <sys/ioctl.h>
+#include <cerrno>
+#endif
 
 #include "MakcuConnection.h"
 
@@ -20,16 +28,22 @@ static const uint8_t BAUD_CHANGE_CMD[9] =
 { 0xDE,0xAD,0x05,0x00,0xA5,0x00,0x09,0x3D,0x00 };
 
 MakcuConnection::MakcuConnection(const std::string& port, unsigned int /*baud_rate*/)
-    : serial_handle_(INVALID_HANDLE_VALUE),
+    :
+#ifdef _WIN32
+      serial_handle_(INVALID_HANDLE_VALUE),
+      write_event_(NULL),
+      read_event_(NULL),
+#else
+      serial_fd_(-1),
+#endif
       is_open_(false),
       listening_(false),
       aiming_active(false),
       shooting_active(false),
       zooming_active(false),
-      port_name_(port),
-      write_event_(NULL),
-      read_event_(NULL)
+      port_name_(port)
 {
+#ifdef _WIN32
     ZeroMemory(&write_overlapped_, sizeof(write_overlapped_));
     ZeroMemory(&read_overlapped_, sizeof(read_overlapped_));
 
@@ -40,23 +54,32 @@ MakcuConnection::MakcuConnection(const std::string& port, unsigned int /*baud_ra
         write_overlapped_.hEvent = write_event_;
         read_overlapped_.hEvent = read_event_;
     }
+#endif
 
     try {
         if (!initializeMakcuConnection()) {
             throw std::runtime_error("Failed to initialize Makcu connection to " + port);
         }
 
+#ifdef _WIN32
         std::cout << "[Makcu] Connected at 4Mbps! PORT: " << port
                   << " (Native Windows API - Async I/O)" << std::endl;
+#else
+        std::cout << "[Makcu] Connected at 4Mbps! PORT: " << port
+                  << " (Linux termios)" << std::endl;
+#endif
 
     } catch (const std::exception& e) {
         cleanup();
+#ifdef _WIN32
         if (write_event_) CloseHandle(write_event_);
         if (read_event_) CloseHandle(read_event_);
+#endif
         std::cerr << "[Makcu] Initialization error: " << e.what() << std::endl;
     }
 }
 
+#ifdef _WIN32
 bool MakcuConnection::initializeMakcuConnection() {
     std::string full_port = "\\\\.\\" + port_name_;
 
@@ -135,7 +158,113 @@ bool MakcuConnection::initializeMakcuConnection() {
         return false;
     }
 }
+#else // Linux implementation
+bool MakcuConnection::configureBaudRate(int fd, uint32_t baud_rate) {
+    struct termios tty;
+    if (tcgetattr(fd, &tty) != 0) {
+        std::cerr << "[Makcu] tcgetattr failed: " << strerror(errno) << std::endl;
+        return false;
+    }
 
+    speed_t speed;
+    switch (baud_rate) {
+        case 115200: speed = B115200; break;
+        case 4000000: speed = B4000000; break;
+        default:
+            std::cerr << "[Makcu] Unsupported baud rate: " << baud_rate << std::endl;
+            return false;
+    }
+
+    cfsetispeed(&tty, speed);
+    cfsetospeed(&tty, speed);
+
+    tty.c_cflag &= ~PARENB;
+    tty.c_cflag &= ~CSTOPB;
+    tty.c_cflag &= ~CSIZE;
+    tty.c_cflag |= CS8;
+    tty.c_cflag &= ~CRTSCTS;
+    tty.c_cflag |= CREAD | CLOCAL;
+
+    tty.c_lflag &= ~ICANON;
+    tty.c_lflag &= ~ECHO;
+    tty.c_lflag &= ~ECHOE;
+    tty.c_lflag &= ~ECHONL;
+    tty.c_lflag &= ~ISIG;
+
+    tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+    tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
+
+    tty.c_oflag &= ~OPOST;
+    tty.c_oflag &= ~ONLCR;
+
+    tty.c_cc[VTIME] = 1;
+    tty.c_cc[VMIN] = 0;
+
+    if (tcsetattr(fd, TCSANOW, &tty) != 0) {
+        std::cerr << "[Makcu] tcsetattr failed: " << strerror(errno) << std::endl;
+        return false;
+    }
+
+    tcflush(fd, TCIOFLUSH);
+    return true;
+}
+
+bool MakcuConnection::initializeMakcuConnection() {
+    serial_fd_ = open(port_name_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+
+    if (serial_fd_ < 0) {
+        std::cerr << "[Makcu] Unable to open port: " << port_name_
+                  << " (" << strerror(errno) << ")" << std::endl;
+        return false;
+    }
+
+    if (!configureBaudRate(serial_fd_, BOOT_BAUD)) {
+        close(serial_fd_);
+        serial_fd_ = -1;
+        return false;
+    }
+
+    ssize_t written = ::write(serial_fd_, BAUD_CHANGE_CMD, sizeof(BAUD_CHANGE_CMD));
+    if (written != sizeof(BAUD_CHANGE_CMD)) {
+        std::cerr << "[Makcu] Failed to send baud change command" << std::endl;
+        close(serial_fd_);
+        serial_fd_ = -1;
+        return false;
+    }
+
+    tcdrain(serial_fd_);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    close(serial_fd_);
+    serial_fd_ = -1;
+
+    serial_fd_ = open(port_name_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+
+    if (serial_fd_ < 0) {
+        std::cerr << "[Makcu] Unable to reopen port at high speed: " << strerror(errno) << std::endl;
+        return false;
+    }
+
+    if (!configureBaudRate(serial_fd_, WORK_BAUD)) {
+        close(serial_fd_);
+        serial_fd_ = -1;
+        return false;
+    }
+
+    try {
+        startListening();
+        is_open_ = true;
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "[Makcu] Failed to start listening thread: " << e.what() << std::endl;
+        close(serial_fd_);
+        serial_fd_ = -1;
+        return false;
+    }
+}
+#endif
+
+#ifdef _WIN32
 bool MakcuConnection::configureDCB(uint32_t baud_rate) {
     ZeroMemory(&dcb_config_, sizeof(DCB));
     dcb_config_.DCBlength = sizeof(DCB);
@@ -186,8 +315,10 @@ bool MakcuConnection::configureTimeouts() {
 
     return true;
 }
+#endif
 
 void MakcuConnection::safeMakcuClose() {
+#ifdef _WIN32
     if (!is_open_ || serial_handle_ == INVALID_HANDLE_VALUE) {
         return;
     }
@@ -243,6 +374,36 @@ void MakcuConnection::safeMakcuClose() {
     } catch (const std::exception& e) {
         std::cerr << "[Makcu] Error during safe Makcu close: " << e.what() << std::endl;
     }
+#else // Linux
+    if (!is_open_ || serial_fd_ < 0) {
+        return;
+    }
+
+    std::cout << "[Makcu] Starting safe Makcu port closure..." << std::endl;
+
+    try {
+        const char* left_release = "km.left(0)\r\n";
+        const char* right_release = "km.right(0)\r\n";
+        const char* neutral_pos = "km.move(0,0)\r\n";
+
+        ::write(serial_fd_, left_release, strlen(left_release));
+        ::write(serial_fd_, right_release, strlen(right_release));
+        ::write(serial_fd_, neutral_pos, strlen(neutral_pos));
+
+        tcdrain(serial_fd_);
+        tcflush(serial_fd_, TCIOFLUSH);
+
+        close(serial_fd_);
+        serial_fd_ = -1;
+        is_open_ = false;
+        listening_ = false;
+
+        std::cout << "[Makcu] Makcu port closed successfully." << std::endl;
+
+    } catch (const std::exception& e) {
+        std::cerr << "[Makcu] Error during safe Makcu close: " << e.what() << std::endl;
+    }
+#endif
 }
 
 void MakcuConnection::cleanup() {
@@ -260,10 +421,17 @@ void MakcuConnection::cleanup() {
 }
 
 void MakcuConnection::closeHandle() {
+#ifdef _WIN32
     if (serial_handle_ != INVALID_HANDLE_VALUE) {
         CloseHandle(serial_handle_);
         serial_handle_ = INVALID_HANDLE_VALUE;
     }
+#else
+    if (serial_fd_ >= 0) {
+        close(serial_fd_);
+        serial_fd_ = -1;
+    }
+#endif
     is_open_ = false;
 }
 
@@ -271,6 +439,7 @@ MakcuConnection::~MakcuConnection()
 {
     cleanup();
 
+#ifdef _WIN32
     if (write_event_) {
         CloseHandle(write_event_);
         write_event_ = NULL;
@@ -279,6 +448,7 @@ MakcuConnection::~MakcuConnection()
         CloseHandle(read_event_);
         read_event_ = NULL;
     }
+#endif
 }
 
 bool MakcuConnection::isOpen() const
@@ -288,6 +458,7 @@ bool MakcuConnection::isOpen() const
 
 void MakcuConnection::write(const std::string& data)
 {
+#ifdef _WIN32
     if (!is_open_ || serial_handle_ == INVALID_HANDLE_VALUE)
         return;
 
@@ -296,10 +467,22 @@ void MakcuConnection::write(const std::string& data)
     if (!writeAsync(data.c_str(), static_cast<DWORD>(data.length()))) {
         std::cerr << "[Makcu] Write operation failed" << std::endl;
     }
+#else
+    if (!is_open_ || serial_fd_ < 0)
+        return;
+
+    std::lock_guard<std::mutex> lock(write_mutex_);
+
+    ssize_t written = ::write(serial_fd_, data.c_str(), data.length());
+    if (written < 0 || static_cast<size_t>(written) != data.length()) {
+        std::cerr << "[Makcu] Write operation failed" << std::endl;
+    }
+#endif
 }
 
 std::string MakcuConnection::read()
 {
+#ifdef _WIN32
     if (!is_open_ || serial_handle_ == INVALID_HANDLE_VALUE)
         return "";
 
@@ -312,6 +495,20 @@ std::string MakcuConnection::read()
     }
 
     return "";
+#else
+    if (!is_open_ || serial_fd_ < 0)
+        return "";
+
+    char buffer[256];
+    ssize_t bytes_read = ::read(serial_fd_, buffer, sizeof(buffer) - 1);
+
+    if (bytes_read > 0) {
+        buffer[bytes_read] = '\0';
+        return std::string(buffer);
+    }
+
+    return "";
+#endif
 }
 
 void MakcuConnection::click(int button)
@@ -453,6 +650,7 @@ void MakcuConnection::processIncomingLine(const std::string& line)
     }
 }
 
+#ifdef _WIN32
 bool MakcuConnection::writeAsync(const void* data, DWORD size)
 {
     if (serial_handle_ == INVALID_HANDLE_VALUE) {
@@ -526,3 +724,4 @@ bool MakcuConnection::waitForAsyncOperation(OVERLAPPED* overlapped, DWORD timeou
 
     return false;
 }
+#endif
