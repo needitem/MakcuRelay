@@ -21,7 +21,7 @@ cmake -DCMAKE_BUILD_TYPE="$BUILD_TYPE" ..
 cmake --build . --config "$BUILD_TYPE" -j$(nproc)
 
 # Copy executable to root
-cp "$BUILD_DIR/MakcuRelay" .
+cp MakcuRelay ..
 
 echo ""
 echo "Build complete!"
