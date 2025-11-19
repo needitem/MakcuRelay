@@ -33,17 +33,43 @@ list_ports() {
 }
 
 # Check arguments
-if [ $# -lt 2 ]; then
-    echo "Usage: ./run_linux.sh [SERIAL_PORT] [UDP_PORT]"
+if [ $# -ge 2 ]; then
+    SERIAL_PORT=$1
+    UDP_PORT=$2
+else
+    echo "Scanning for serial ports..."
+    ports=($(ls /dev/ttyUSB* /dev/ttyACM* /dev/ttyS* 2>/dev/null))
+    
+    if [ ${#ports[@]} -eq 0 ]; then
+        echo "No serial ports found!"
+        echo "Please check connection and try again."
+        exit 1
+    fi
+
+    echo "Available Serial Ports:"
+    for i in "${!ports[@]}"; do
+        echo "[$i] ${ports[$i]}"
+    done
     echo ""
-    list_ports
-    echo ""
-    echo "Example: ./run_linux.sh /dev/ttyUSB0 5005"
-    exit 1
+
+    read -p "Select port number [0]: " port_index
+    port_index=${port_index:-0}
+
+    if [[ ! "$port_index" =~ ^[0-9]+$ ]] || [ "$port_index" -ge "${#ports[@]}" ]; then
+        echo "Invalid selection."
+        exit 1
+    fi
+
+    SERIAL_PORT=${ports[$port_index]}
+    
+    read -p "Enter UDP Port [5005]: " UDP_PORT
+    UDP_PORT=${UDP_PORT:-5005}
 fi
 
-SERIAL_PORT=$1
-UDP_PORT=$2
+echo ""
+echo "Selected Serial Port: $SERIAL_PORT"
+echo "Selected UDP Port:    $UDP_PORT"
+echo ""
 
 # Check if port exists
 if [ ! -e "$SERIAL_PORT" ]; then
