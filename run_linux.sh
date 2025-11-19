@@ -33,36 +33,58 @@ list_ports() {
 }
 
 # Check arguments
+# Check arguments
 if [ $# -ge 2 ]; then
     SERIAL_PORT=$1
     UDP_PORT=$2
 else
     echo "Scanning for serial ports..."
-    ports=($(ls /dev/ttyUSB* /dev/ttyACM* /dev/ttyS* 2>/dev/null))
+    # Use positional parameters to store ports (POSIX compliant)
+    set -- $(ls /dev/ttyUSB* /dev/ttyACM* /dev/ttyS* 2>/dev/null)
     
-    if [ ${#ports[@]} -eq 0 ]; then
+    if [ $# -eq 0 ]; then
         echo "No serial ports found!"
         echo "Please check connection and try again."
         exit 1
     fi
 
     echo "Available Serial Ports:"
-    for i in "${!ports[@]}"; do
-        echo "[$i] ${ports[$i]}"
+    i=0
+    for port in "$@"; do
+        echo "[$i] $port"
+        i=$((i + 1))
     done
     echo ""
 
-    read -p "Select port number [0]: " port_index
+    printf "Select port number [0]: "
+    read port_index
     port_index=${port_index:-0}
 
-    if [[ ! "$port_index" =~ ^[0-9]+$ ]] || [ "$port_index" -ge "${#ports[@]}" ]; then
+    # Check if input is a number
+    case "$port_index" in
+        ''|*[!0-9]*) 
+            echo "Invalid selection."
+            exit 1 
+            ;;
+    esac
+
+    if [ "$port_index" -ge "$#" ]; then
         echo "Invalid selection."
         exit 1
     fi
 
-    SERIAL_PORT=${ports[$port_index]}
+    # Retrieve selected port
+    i=0
+    for port in "$@"; do
+        if [ "$i" -eq "$port_index" ]; then
+            SERIAL_PORT=$port
+            break
+        fi
+        i=$((i + 1))
+    done
     
-    read -p "Enter UDP Port [5005]: " UDP_PORT
+    printf "Enter UDP Port [5005]: "
+    read UDP_PORT
     UDP_PORT=${UDP_PORT:-5005}
 fi
 
@@ -86,11 +108,13 @@ if [ ! -r "$SERIAL_PORT" ] || [ ! -w "$SERIAL_PORT" ]; then
     echo "Then log out and log back in."
     echo "Or run with sudo (not recommended for regular use)."
     echo ""
-    read -p "Attempt to run anyway? (y/n) " -n 1 -r
+    printf "Attempt to run anyway? (y/n) "
+    read REPLY
     echo ""
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+    case "$REPLY" in
+        [Yy]*) ;;
+        *) exit 1 ;;
+    esac
 fi
 
 # Run the application
