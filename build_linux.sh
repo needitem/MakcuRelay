@@ -20,10 +20,12 @@ cmake -DCMAKE_BUILD_TYPE="$BUILD_TYPE" ..
 # Build
 cmake --build . --config "$BUILD_TYPE" -j$(nproc)
 
+# Copy executable to root
+cp "$BUILD_DIR/MakcuRelay" .
+
 echo ""
 echo "Build complete!"
-echo "Executable: $BUILD_DIR/MakcuRelay"
+echo "Executable: ./MakcuRelay"
 echo ""
 echo "Usage: ./MakcuRelay [SERIAL_PORT] [UDP_PORT]"
-echo "Example: ./MakcuRelay COM3 5005"
 echo "Example: ./MakcuRelay /dev/ttyUSB0 5005"
