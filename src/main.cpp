@@ -27,7 +27,12 @@ void signalHandler(int)
 
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
     std::string comPort = "COM3";
+#else
+    std::string comPort = "/dev/ttyUSB0";
+#endif
+
     unsigned short udpPort = 5005;
 
     if (argc >= 2) {
