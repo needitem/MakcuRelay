@@ -42,7 +42,7 @@ MakcuRelay supports both **Windows** and **Linux** platforms with cross-platform
 Requirements:
 - Windows 10/11 x64
 - Visual Studio 2022 with C++ toolchain (or MinGW)
-- CMake 3.20+ in `PATH`
+- CMake 3.10+ in `PATH`
 
 Build steps:
 
@@ -66,9 +66,9 @@ build\Release\MakcuRelay.exe
 ### Linux Build
 
 Requirements:
-- Linux (Ubuntu 20.04+ or similar)
-- GCC/Clang with C++20 support
-- CMake 3.20+
+- Linux (Ubuntu 18.04+ or similar)
+- GCC/Clang with C++17 support
+- CMake 3.10+
 - Build essentials (`sudo apt install build-essential cmake`)
 
 Build steps:
