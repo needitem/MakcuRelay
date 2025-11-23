@@ -33,12 +33,11 @@ public:
 
     void send_stop();
 
-    bool aiming_active;
-    bool shooting_active;
-    bool zooming_active;
+    bool left_mouse_active;
+    bool right_mouse_active;
 
     // State broadcast callback
-    using StateChangeCallback = std::function<void(bool aiming, bool shooting, bool zooming)>;
+    using StateChangeCallback = std::function<void(bool left_mouse, bool right_mouse)>;
     void setStateChangeCallback(StateChangeCallback callback);
 
     // Button state polling

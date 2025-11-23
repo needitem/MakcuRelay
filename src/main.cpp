@@ -131,9 +131,9 @@ int runRelay(int argc, char** argv)
     broadcast_addr.sin_addr.s_addr = inet_addr(broadcastIP.c_str());
     broadcast_addr.sin_port = htons(broadcastPort);
 
-    makcu.setStateChangeCallback([sock, broadcast_addr](bool aiming, bool shooting, bool zooming) {
+    makcu.setStateChangeCallback([sock, broadcast_addr](bool left_mouse, bool right_mouse) {
         char msg[64];
-        std::snprintf(msg, sizeof(msg), "STATE:%d,%d,%d\n", aiming ? 1 : 0, shooting ? 1 : 0, zooming ? 1 : 0);
+        std::snprintf(msg, sizeof(msg), "STATE:%d,%d\n", left_mouse ? 1 : 0, right_mouse ? 1 : 0);
 #ifdef _WIN32
         sendto(sock, msg, static_cast<int>(strlen(msg)), 0,
                reinterpret_cast<const SOCKADDR*>(&broadcast_addr), sizeof(broadcast_addr));

@@ -38,9 +38,8 @@ MakcuConnection::MakcuConnection(const std::string& port, unsigned int /*baud_ra
 #endif
       is_open_(false),
       listening_(false),
-      aiming_active(false),
-      shooting_active(false),
-      zooming_active(false),
+      left_mouse_active(false),
+      right_mouse_active(false),
       port_name_(port),
       state_callback_(nullptr)
 {
@@ -685,8 +684,8 @@ void MakcuConnection::processIncomingLine(const std::string& line)
     }
 
     bool state_changed = false;
-    static bool prev_shooting = false;
-    static bool prev_zooming = false;
+    static bool prev_left = false;
+    static bool prev_right = false;
     static std::string last_command;
 
     // Makcu response format:
@@ -714,18 +713,18 @@ void MakcuConnection::processIncomingLine(const std::string& line)
             int state = std::stoi(line);
 
             if (last_command == "left") {
-                bool new_shooting = (state > 0);
-                if (new_shooting != prev_shooting) {
-                    shooting_active = new_shooting;
-                    prev_shooting = new_shooting;
+                bool new_left = (state > 0);
+                if (new_left != prev_left) {
+                    left_mouse_active = new_left;
+                    prev_left = new_left;
                     state_changed = true;
                 }
             }
             else if (last_command == "right") {
-                bool new_zooming = (state > 0);
-                if (new_zooming != prev_zooming) {
-                    zooming_active = new_zooming;
-                    prev_zooming = new_zooming;
+                bool new_right = (state > 0);
+                if (new_right != prev_right) {
+                    right_mouse_active = new_right;
+                    prev_right = new_right;
                     state_changed = true;
                 }
             }
@@ -738,7 +737,7 @@ void MakcuConnection::processIncomingLine(const std::string& line)
     }
 
     if (state_changed && state_callback_) {
-        state_callback_(aiming_active, shooting_active, zooming_active);
+        state_callback_(left_mouse_active, right_mouse_active);
     }
 }
 
