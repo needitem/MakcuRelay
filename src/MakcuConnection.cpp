@@ -694,26 +694,36 @@ void MakcuConnection::processIncomingLine(const std::string& line)
     if (line.find("km.left(") == 0) {
         size_t start = line.find('(');
         size_t end = line.find(')');
-        if (start != std::string::npos && end != std::string::npos) {
-            int state = std::stoi(line.substr(start + 1, end - start - 1));
-            bool new_shooting = (state > 0);
-            if (new_shooting != prev_shooting) {
-                shooting_active = new_shooting;
-                prev_shooting = new_shooting;
-                state_changed = true;
+        if (start != std::string::npos && end != std::string::npos && end > start + 1) {
+            try {
+                std::string num_str = line.substr(start + 1, end - start - 1);
+                int state = std::stoi(num_str);
+                bool new_shooting = (state > 0);
+                if (new_shooting != prev_shooting) {
+                    shooting_active = new_shooting;
+                    prev_shooting = new_shooting;
+                    state_changed = true;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "[Makcu] Error parsing left state: " << e.what() << std::endl;
             }
         }
     }
     else if (line.find("km.right(") == 0) {
         size_t start = line.find('(');
         size_t end = line.find(')');
-        if (start != std::string::npos && end != std::string::npos) {
-            int state = std::stoi(line.substr(start + 1, end - start - 1));
-            bool new_zooming = (state > 0);
-            if (new_zooming != prev_zooming) {
-                zooming_active = new_zooming;
-                prev_zooming = new_zooming;
-                state_changed = true;
+        if (start != std::string::npos && end != std::string::npos && end > start + 1) {
+            try {
+                std::string num_str = line.substr(start + 1, end - start - 1);
+                int state = std::stoi(num_str);
+                bool new_zooming = (state > 0);
+                if (new_zooming != prev_zooming) {
+                    zooming_active = new_zooming;
+                    prev_zooming = new_zooming;
+                    state_changed = true;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "[Makcu] Error parsing right state: " << e.what() << std::endl;
             }
         }
     }
