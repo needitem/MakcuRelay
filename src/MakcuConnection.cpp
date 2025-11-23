@@ -689,43 +689,53 @@ void MakcuConnection::processIncomingLine(const std::string& line)
     bool state_changed = false;
     static bool prev_shooting = false;
     static bool prev_zooming = false;
+    static std::string last_command;
 
-    // Parse km.left(), km.right(), km.middle() responses
-    // Format: "km.left(N)" where N is lock state (0=none, 1=raw, 2=injected, 3=both)
-    if (line.find("km.left(") == 0) {
-        size_t start = line.find('(');
-        size_t end = line.find(')');
-        if (start != std::string::npos && end != std::string::npos && end > start + 1) {
-            try {
-                std::string num_str = line.substr(start + 1, end - start - 1);
-                int state = std::stoi(num_str);
+    // Makcu response format:
+    // >>> km.left()
+    // 0
+    // So we track the command and then parse the next line as the response
+
+    // Check if this line is a command echo
+    if (line.find("km.left()") != std::string::npos) {
+        last_command = "left";
+        return;
+    }
+    else if (line.find("km.right()") != std::string::npos) {
+        last_command = "right";
+        return;
+    }
+    else if (line.find("km.middle()") != std::string::npos) {
+        last_command = "middle";
+        return;
+    }
+
+    // If we have a pending command, this line should be the numeric response
+    if (!last_command.empty()) {
+        try {
+            int state = std::stoi(line);
+
+            if (last_command == "left") {
                 bool new_shooting = (state > 0);
                 if (new_shooting != prev_shooting) {
                     shooting_active = new_shooting;
                     prev_shooting = new_shooting;
                     state_changed = true;
                 }
-            } catch (const std::exception&) {
-                // Ignore parsing errors
             }
-        }
-    }
-    else if (line.find("km.right(") == 0) {
-        size_t start = line.find('(');
-        size_t end = line.find(')');
-        if (start != std::string::npos && end != std::string::npos && end > start + 1) {
-            try {
-                std::string num_str = line.substr(start + 1, end - start - 1);
-                int state = std::stoi(num_str);
+            else if (last_command == "right") {
                 bool new_zooming = (state > 0);
                 if (new_zooming != prev_zooming) {
                     zooming_active = new_zooming;
                     prev_zooming = new_zooming;
                     state_changed = true;
                 }
-            } catch (const std::exception&) {
-                // Ignore parsing errors
             }
+
+            last_command.clear();
+        } catch (const std::exception&) {
+            // Not a number, ignore
+            last_command.clear();
         }
     }
 
