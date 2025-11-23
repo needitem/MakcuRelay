@@ -684,8 +684,6 @@ void MakcuConnection::processIncomingLine(const std::string& line)
         return;
     }
 
-    std::cout << "[Makcu] Received: " << line << std::endl;
-
     bool state_changed = false;
     static bool prev_shooting = false;
     static bool prev_zooming = false;

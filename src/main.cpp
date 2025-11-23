@@ -134,21 +134,12 @@ int runRelay(int argc, char** argv)
     makcu.setStateChangeCallback([sock, broadcast_addr](bool aiming, bool shooting, bool zooming) {
         char msg[64];
         std::snprintf(msg, sizeof(msg), "STATE:%d,%d,%d\n", aiming ? 1 : 0, shooting ? 1 : 0, zooming ? 1 : 0);
-
-        std::cout << "[MakcuRelay] State changed - sending: " << msg;
-
 #ifdef _WIN32
-        int sent = sendto(sock, msg, static_cast<int>(strlen(msg)), 0,
+        sendto(sock, msg, static_cast<int>(strlen(msg)), 0,
                reinterpret_cast<const SOCKADDR*>(&broadcast_addr), sizeof(broadcast_addr));
-        if (sent == SOCKET_ERROR) {
-            std::cerr << "[MakcuRelay] sendto() failed: " << WSAGetLastError() << std::endl;
-        }
 #else
-        ssize_t sent = sendto(sock, msg, strlen(msg), 0,
+        sendto(sock, msg, strlen(msg), 0,
                reinterpret_cast<const struct sockaddr*>(&broadcast_addr), sizeof(broadcast_addr));
-        if (sent < 0) {
-            std::cerr << "[MakcuRelay] sendto() failed: " << strerror(errno) << std::endl;
-        }
 #endif
     });
 
