@@ -34,6 +34,8 @@ int runRelay(int argc, char** argv)
 #endif
 
     unsigned short udpPort = 5005;
+    std::string broadcastIP = "127.0.0.1";
+    unsigned short broadcastPort = 5006;
 
     if (argc >= 2) {
         comPort = argv[1];
@@ -45,9 +47,20 @@ int runRelay(int argc, char** argv)
             std::cerr << "[MakcuRelay] Invalid UDP port, using default 5005\n";
         }
     }
+    if (argc >= 4) {
+        broadcastIP = argv[3];
+    }
+    if (argc >= 5) {
+        try {
+            broadcastPort = static_cast<unsigned short>(std::stoi(argv[4]));
+        } catch (...) {
+            std::cerr << "[MakcuRelay] Invalid broadcast port, using default 5006\n";
+        }
+    }
 
     std::cout << "[MakcuRelay] COM port: " << comPort
-              << ", UDP port: " << udpPort << std::endl;
+              << ", UDP listen port: " << udpPort
+              << ", Broadcast to: " << broadcastIP << ":" << broadcastPort << std::endl;
 
 #ifdef _WIN32
     WSADATA wsaData;
@@ -112,11 +125,11 @@ int runRelay(int argc, char** argv)
         return 1;
     }
 
-    // Setup state broadcast to localhost:5006
+    // Setup state broadcast to target IP:port
     sockaddr_in broadcast_addr{};
     broadcast_addr.sin_family = AF_INET;
-    broadcast_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    broadcast_addr.sin_port = htons(5006);
+    broadcast_addr.sin_addr.s_addr = inet_addr(broadcastIP.c_str());
+    broadcast_addr.sin_port = htons(broadcastPort);
 
     makcu.setStateChangeCallback([sock, broadcast_addr](bool aiming, bool shooting, bool zooming) {
         char msg[64];
@@ -130,8 +143,11 @@ int runRelay(int argc, char** argv)
 #endif
     });
 
+    // Start polling Makcu button states
+    makcu.startButtonPolling();
+
     std::cout << "[MakcuRelay] Listening for UDP commands (MOVE:x,y / CLICK:LEFT|RIGHT)...\n";
-    std::cout << "[MakcuRelay] Broadcasting button states to 127.0.0.1:5006\n";
+    std::cout << "[MakcuRelay] Broadcasting button states to " << broadcastIP << ":" << broadcastPort << "\n";
     std::cout << "[MakcuRelay] Press Ctrl+C to exit.\n";
 
     std::signal(SIGINT, signalHandler);

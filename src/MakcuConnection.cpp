@@ -409,6 +409,7 @@ void MakcuConnection::safeMakcuClose() {
 
 void MakcuConnection::cleanup() {
     listening_ = false;
+    stopButtonPolling();
 
     safeMakcuClose();
 
@@ -560,6 +561,51 @@ void MakcuConnection::setStateChangeCallback(StateChangeCallback callback)
     state_callback_ = callback;
 }
 
+void MakcuConnection::startButtonPolling()
+{
+    if (polling_enabled_.load()) {
+        return;
+    }
+
+    polling_enabled_ = true;
+    polling_thread_ = std::thread(&MakcuConnection::buttonPollingThreadFunc, this);
+    std::cout << "[Makcu] Button state polling started" << std::endl;
+}
+
+void MakcuConnection::stopButtonPolling()
+{
+    polling_enabled_ = false;
+    if (polling_thread_.joinable()) {
+        polling_thread_.join();
+    }
+}
+
+void MakcuConnection::buttonPollingThreadFunc()
+{
+    bool prev_left = false;
+    bool prev_right = false;
+    bool prev_middle = false;
+
+    while (polling_enabled_.load() && is_open_) {
+        // Query button states
+        sendCommand("km.left()");
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+
+        sendCommand("km.right()");
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+
+        sendCommand("km.middle()");
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+
+        // Check for state changes
+        // Note: actual state will be updated via processIncomingLine
+        // when we receive responses like "km.left(1)"
+
+        // Poll at ~100Hz (10ms interval)
+        std::this_thread::sleep_for(std::chrono::milliseconds(4));
+    }
+}
+
 void MakcuConnection::sendCommand(const std::string& command)
 {
     // Makcu Python library sends ASCII commands terminated with CRLF.
@@ -633,33 +679,42 @@ void MakcuConnection::listeningThreadFunc()
 
 void MakcuConnection::processIncomingLine(const std::string& line)
 {
-    bool state_changed = false;
+    // Skip empty lines and prompts
+    if (line.empty() || line == ">>>") {
+        return;
+    }
 
-    if (line.find("AIM") == 0) {
-        if (line.find("ON") != std::string::npos) {
-            aiming_active = true;
-            state_changed = true;
-        } else if (line.find("OFF") != std::string::npos) {
-            aiming_active = false;
-            state_changed = true;
+    std::cout << "[Makcu] Received: " << line << std::endl;
+    bool state_changed = false;
+    static bool prev_shooting = false;
+    static bool prev_zooming = false;
+
+    // Parse km.left(), km.right(), km.middle() responses
+    // Format: "km.left(N)" where N is lock state (0=none, 1=raw, 2=injected, 3=both)
+    if (line.find("km.left(") == 0) {
+        size_t start = line.find('(');
+        size_t end = line.find(')');
+        if (start != std::string::npos && end != std::string::npos) {
+            int state = std::stoi(line.substr(start + 1, end - start - 1));
+            bool new_shooting = (state > 0);
+            if (new_shooting != prev_shooting) {
+                shooting_active = new_shooting;
+                prev_shooting = new_shooting;
+                state_changed = true;
+            }
         }
     }
-    else if (line.find("SHOOT") == 0) {
-        if (line.find("ON") != std::string::npos) {
-            shooting_active = true;
-            state_changed = true;
-        } else if (line.find("OFF") != std::string::npos) {
-            shooting_active = false;
-            state_changed = true;
-        }
-    }
-    else if (line.find("ZOOM") == 0) {
-        if (line.find("ON") != std::string::npos) {
-            zooming_active = true;
-            state_changed = true;
-        } else if (line.find("OFF") != std::string::npos) {
-            zooming_active = false;
-            state_changed = true;
+    else if (line.find("km.right(") == 0) {
+        size_t start = line.find('(');
+        size_t end = line.find(')');
+        if (start != std::string::npos && end != std::string::npos) {
+            int state = std::stoi(line.substr(start + 1, end - start - 1));
+            bool new_zooming = (state > 0);
+            if (new_zooming != prev_zooming) {
+                zooming_active = new_zooming;
+                prev_zooming = new_zooming;
+                state_changed = true;
+            }
         }
     }
 

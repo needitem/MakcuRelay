@@ -10,10 +10,17 @@ if (MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
-add_executable(MakcuRelay
-    src/main.cpp
-    src/MakcuConnection.cpp
-)
+if (WIN32)
+    add_executable(MakcuRelay WIN32
+        src/main.cpp
+        src/MakcuConnection.cpp
+    )
+else()
+    add_executable(MakcuRelay
+        src/main.cpp
+        src/MakcuConnection.cpp
+    )
+endif()
 
 target_include_directories(MakcuRelay PRIVATE src)
 

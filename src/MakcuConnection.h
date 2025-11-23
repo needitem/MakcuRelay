@@ -41,8 +41,15 @@ public:
     using StateChangeCallback = std::function<void(bool aiming, bool shooting, bool zooming)>;
     void setStateChangeCallback(StateChangeCallback callback);
 
+    // Button state polling
+    void startButtonPolling();
+    void stopButtonPolling();
+
 private:
     StateChangeCallback state_callback_;
+    std::atomic<bool> polling_enabled_{false};
+    std::thread polling_thread_;
+    void buttonPollingThreadFunc();
     void sendCommand(const std::string& command);
     std::vector<int> splitValue(int value);
 
