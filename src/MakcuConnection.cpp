@@ -684,7 +684,6 @@ void MakcuConnection::processIncomingLine(const std::string& line)
         return;
     }
 
-    std::cout << "[Makcu] Received: " << line << std::endl;
     bool state_changed = false;
     static bool prev_shooting = false;
     static bool prev_zooming = false;
@@ -704,8 +703,8 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     prev_shooting = new_shooting;
                     state_changed = true;
                 }
-            } catch (const std::exception& e) {
-                std::cerr << "[Makcu] Error parsing left state: " << e.what() << std::endl;
+            } catch (const std::exception&) {
+                // Ignore parsing errors
             }
         }
     }
@@ -722,8 +721,8 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     prev_zooming = new_zooming;
                     state_changed = true;
                 }
-            } catch (const std::exception& e) {
-                std::cerr << "[Makcu] Error parsing right state: " << e.what() << std::endl;
+            } catch (const std::exception&) {
+                // Ignore parsing errors
             }
         }
     }
