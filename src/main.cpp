@@ -126,8 +126,6 @@ int runRelay(int argc, char** argv)
     }
 
     // Setup state broadcast to target IP:port
-    // DISABLED: Button state polling is too slow, using GetAsyncKeyState in needaimbot instead
-    /*
     sockaddr_in broadcast_addr{};
     broadcast_addr.sin_family = AF_INET;
     broadcast_addr.sin_addr.s_addr = inet_addr(broadcastIP.c_str());
@@ -147,10 +145,9 @@ int runRelay(int argc, char** argv)
 
     // Start polling Makcu button states
     makcu.startButtonPolling();
-    */
 
     std::cout << "[MakcuRelay] Listening for UDP commands (MOVE:x,y / CLICK:LEFT|RIGHT)...\n";
-    // std::cout << "[MakcuRelay] Broadcasting button states to " << broadcastIP << ":" << broadcastPort << "\n";
+    std::cout << "[MakcuRelay] Broadcasting button states to " << broadcastIP << ":" << broadcastPort << "\n";
     std::cout << "[MakcuRelay] Press Ctrl+C to exit.\n";
 
     std::signal(SIGINT, signalHandler);
