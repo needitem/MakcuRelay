@@ -586,22 +586,16 @@ void MakcuConnection::buttonPollingThreadFunc()
     bool prev_middle = false;
 
     while (polling_enabled_.load() && is_open_) {
-        // Query button states
+        // Query only left and right button states (middle not needed)
         sendCommand("km.left()");
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
-
         sendCommand("km.right()");
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
-
-        sendCommand("km.middle()");
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
 
         // Check for state changes
         // Note: actual state will be updated via processIncomingLine
-        // when we receive responses like "km.left(1)"
+        // when we receive responses like "0" or "1"
 
-        // Poll at ~100Hz (10ms interval)
-        std::this_thread::sleep_for(std::chrono::milliseconds(4));
+        // Poll at ~500Hz (2ms interval) for minimal latency
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
 }
 
