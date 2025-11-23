@@ -125,29 +125,7 @@ int runRelay(int argc, char** argv)
         return 1;
     }
 
-    // Setup state broadcast to target IP:port
-    sockaddr_in broadcast_addr{};
-    broadcast_addr.sin_family = AF_INET;
-    broadcast_addr.sin_addr.s_addr = inet_addr(broadcastIP.c_str());
-    broadcast_addr.sin_port = htons(broadcastPort);
-
-    makcu.setStateChangeCallback([sock, broadcast_addr](bool left_mouse, bool right_mouse) {
-        char msg[64];
-        std::snprintf(msg, sizeof(msg), "STATE:%d,%d\n", left_mouse ? 1 : 0, right_mouse ? 1 : 0);
-#ifdef _WIN32
-        sendto(sock, msg, static_cast<int>(strlen(msg)), 0,
-               reinterpret_cast<const SOCKADDR*>(&broadcast_addr), sizeof(broadcast_addr));
-#else
-        sendto(sock, msg, strlen(msg), 0,
-               reinterpret_cast<const struct sockaddr*>(&broadcast_addr), sizeof(broadcast_addr));
-#endif
-    });
-
-    // Start polling Makcu button states
-    makcu.startButtonPolling();
-
     std::cout << "[MakcuRelay] Listening for UDP commands (MOVE:x,y / CLICK:LEFT|RIGHT)...\n";
-    std::cout << "[MakcuRelay] Broadcasting button states to " << broadcastIP << ":" << broadcastPort << "\n";
     std::cout << "[MakcuRelay] Press Ctrl+C to exit.\n";
 
     std::signal(SIGINT, signalHandler);
