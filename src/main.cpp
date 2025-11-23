@@ -25,7 +25,7 @@ void signalHandler(int)
     g_running.store(false);
 }
 
-int main(int argc, char** argv)
+int runRelay(int argc, char** argv)
 {
 #ifdef _WIN32
     std::string comPort = "COM3";
@@ -112,7 +112,26 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    // Setup state broadcast to localhost:5006
+    sockaddr_in broadcast_addr{};
+    broadcast_addr.sin_family = AF_INET;
+    broadcast_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    broadcast_addr.sin_port = htons(5006);
+
+    makcu.setStateChangeCallback([sock, broadcast_addr](bool aiming, bool shooting, bool zooming) {
+        char msg[64];
+        std::snprintf(msg, sizeof(msg), "STATE:%d,%d,%d\n", aiming ? 1 : 0, shooting ? 1 : 0, zooming ? 1 : 0);
+#ifdef _WIN32
+        sendto(sock, msg, static_cast<int>(strlen(msg)), 0,
+               reinterpret_cast<const SOCKADDR*>(&broadcast_addr), sizeof(broadcast_addr));
+#else
+        sendto(sock, msg, strlen(msg), 0,
+               reinterpret_cast<const struct sockaddr*>(&broadcast_addr), sizeof(broadcast_addr));
+#endif
+    });
+
     std::cout << "[MakcuRelay] Listening for UDP commands (MOVE:x,y / CLICK:LEFT|RIGHT)...\n";
+    std::cout << "[MakcuRelay] Broadcasting button states to 127.0.0.1:5006\n";
     std::cout << "[MakcuRelay] Press Ctrl+C to exit.\n";
 
     std::signal(SIGINT, signalHandler);
@@ -225,3 +244,15 @@ int main(int argc, char** argv)
     std::cout << "[MakcuRelay] Exiting.\n";
     return 0;
 }
+
+#ifdef _WIN32
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
+{
+    return runRelay(__argc, __argv);
+}
+#else
+int main(int argc, char** argv)
+{
+    return runRelay(argc, argv);
+}
+#endif

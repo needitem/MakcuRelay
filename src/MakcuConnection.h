@@ -13,6 +13,7 @@
 #include <mutex>
 #include <vector>
 #include <cstdint>
+#include <functional>
 
 class MakcuConnection
 {
@@ -36,7 +37,12 @@ public:
     bool shooting_active;
     bool zooming_active;
 
+    // State broadcast callback
+    using StateChangeCallback = std::function<void(bool aiming, bool shooting, bool zooming)>;
+    void setStateChangeCallback(StateChangeCallback callback);
+
 private:
+    StateChangeCallback state_callback_;
     void sendCommand(const std::string& command);
     std::vector<int> splitValue(int value);
 

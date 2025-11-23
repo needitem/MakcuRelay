@@ -41,7 +41,8 @@ MakcuConnection::MakcuConnection(const std::string& port, unsigned int /*baud_ra
       aiming_active(false),
       shooting_active(false),
       zooming_active(false),
-      port_name_(port)
+      port_name_(port),
+      state_callback_(nullptr)
 {
 #ifdef _WIN32
     ZeroMemory(&write_overlapped_, sizeof(write_overlapped_));
@@ -554,6 +555,11 @@ void MakcuConnection::send_stop()
     // No-op for modern Makcu protocol – kept for API compatibility.
 }
 
+void MakcuConnection::setStateChangeCallback(StateChangeCallback callback)
+{
+    state_callback_ = callback;
+}
+
 void MakcuConnection::sendCommand(const std::string& command)
 {
     // Makcu Python library sends ASCII commands terminated with CRLF.
@@ -627,26 +633,38 @@ void MakcuConnection::listeningThreadFunc()
 
 void MakcuConnection::processIncomingLine(const std::string& line)
 {
+    bool state_changed = false;
+
     if (line.find("AIM") == 0) {
         if (line.find("ON") != std::string::npos) {
             aiming_active = true;
+            state_changed = true;
         } else if (line.find("OFF") != std::string::npos) {
             aiming_active = false;
+            state_changed = true;
         }
     }
     else if (line.find("SHOOT") == 0) {
         if (line.find("ON") != std::string::npos) {
             shooting_active = true;
+            state_changed = true;
         } else if (line.find("OFF") != std::string::npos) {
             shooting_active = false;
+            state_changed = true;
         }
     }
     else if (line.find("ZOOM") == 0) {
         if (line.find("ON") != std::string::npos) {
             zooming_active = true;
+            state_changed = true;
         } else if (line.find("OFF") != std::string::npos) {
             zooming_active = false;
+            state_changed = true;
         }
+    }
+
+    if (state_changed && state_callback_) {
+        state_callback_(aiming_active, shooting_active, zooming_active);
     }
 }
 
