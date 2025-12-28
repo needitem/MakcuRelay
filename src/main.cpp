@@ -15,10 +15,36 @@
 #include <csignal>
 #include <iostream>
 #include <string>
+#include <mutex>
 
 #include "MakcuConnection.h"
 
 static std::atomic<bool> g_running{ true };
+
+// Global broadcast socket and address for mouse state notifications
+#ifdef _WIN32
+static SOCKET g_broadcastSock = INVALID_SOCKET;
+#else
+static int g_broadcastSock = -1;
+#endif
+static sockaddr_in g_broadcastAddr{};
+static std::mutex g_broadcastMutex;
+
+void sendBroadcastEvent(const char* event)
+{
+    std::lock_guard<std::mutex> lock(g_broadcastMutex);
+#ifdef _WIN32
+    if (g_broadcastSock != INVALID_SOCKET) {
+        sendto(g_broadcastSock, event, static_cast<int>(strlen(event)), 0,
+               reinterpret_cast<SOCKADDR*>(&g_broadcastAddr), sizeof(g_broadcastAddr));
+    }
+#else
+    if (g_broadcastSock >= 0) {
+        sendto(g_broadcastSock, event, strlen(event), 0,
+               reinterpret_cast<struct sockaddr*>(&g_broadcastAddr), sizeof(g_broadcastAddr));
+    }
+#endif
+}
 
 void signalHandler(int)
 {
@@ -125,6 +151,46 @@ int runRelay(int argc, char** argv)
         return 1;
     }
 
+    // Setup broadcast socket for sending mouse state events to game PC
+#ifdef _WIN32
+    g_broadcastSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (g_broadcastSock == INVALID_SOCKET) {
+        std::cerr << "[MakcuRelay] Warning: Failed to create broadcast socket" << std::endl;
+    }
+#else
+    g_broadcastSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (g_broadcastSock < 0) {
+        std::cerr << "[MakcuRelay] Warning: Failed to create broadcast socket" << std::endl;
+    }
+#endif
+
+    // Configure broadcast destination address
+    std::memset(&g_broadcastAddr, 0, sizeof(g_broadcastAddr));
+    g_broadcastAddr.sin_family = AF_INET;
+    g_broadcastAddr.sin_port = htons(broadcastPort);
+    if (InetPtonA(AF_INET, broadcastIP.c_str(), &g_broadcastAddr.sin_addr) != 1) {
+        std::cerr << "[MakcuRelay] Warning: Invalid broadcast IP: " << broadcastIP << std::endl;
+    }
+
+    // Setup mouse button state callback to broadcast events
+    makcu.setStateChangeCallback([](bool left_mouse, bool right_mouse) {
+        static bool prev_right = false;
+
+        // We only care about right mouse button for aiming
+        if (right_mouse != prev_right) {
+            if (right_mouse) {
+                sendBroadcastEvent("AIM:START");
+            } else {
+                sendBroadcastEvent("AIM:STOP");
+            }
+            prev_right = right_mouse;
+        }
+    });
+
+    // Start button polling thread
+    makcu.startButtonPolling();
+    std::cout << "[MakcuRelay] Mouse button monitoring enabled -> " << broadcastIP << ":" << broadcastPort << std::endl;
+
     std::cout << "[MakcuRelay] Listening for UDP commands (MOVE:x,y / CLICK:LEFT|RIGHT)...\n";
     std::cout << "[MakcuRelay] Press Ctrl+C to exit.\n";
 
@@ -229,9 +295,17 @@ int runRelay(int argc, char** argv)
     }
 
 #ifdef _WIN32
+    if (g_broadcastSock != INVALID_SOCKET) {
+        closesocket(g_broadcastSock);
+        g_broadcastSock = INVALID_SOCKET;
+    }
     closesocket(sock);
     WSACleanup();
 #else
+    if (g_broadcastSock >= 0) {
+        close(g_broadcastSock);
+        g_broadcastSock = -1;
+    }
     close(sock);
 #endif
 
