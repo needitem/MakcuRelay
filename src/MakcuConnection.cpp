@@ -567,24 +567,25 @@ void MakcuConnection::startButtonPolling()
     }
 
     polling_enabled_ = true;
-
-    // Enable button streaming mode: mode=1 (raw input), period=1ms
-    // Response format: km.buttons<1-byte mask>\r\n
-    sendCommand("km.buttons(1,1)");
-
-    std::cout << "[Makcu] Button streaming mode enabled" << std::endl;
+    polling_thread_ = std::thread(&MakcuConnection::buttonPollingThreadFunc, this);
+    std::cout << "[Makcu] Button polling started" << std::endl;
 }
 
 void MakcuConnection::stopButtonPolling()
 {
-    // Disable button streaming
-    sendCommand("km.buttons(0)");
     polling_enabled_ = false;
+    if (polling_thread_.joinable()) {
+        polling_thread_.join();
+    }
 }
 
 void MakcuConnection::buttonPollingThreadFunc()
 {
-    // Not used in streaming mode
+    while (polling_enabled_.load() && is_open_) {
+        sendCommand("km.left()");
+        sendCommand("km.right()");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
 }
 
 void MakcuConnection::sendCommand(const std::string& command)
