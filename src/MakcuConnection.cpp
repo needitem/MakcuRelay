@@ -594,8 +594,8 @@ void MakcuConnection::buttonPollingThreadFunc()
         // Note: actual state will be updated via processIncomingLine
         // when we receive responses like "0" or "1"
 
-        // Poll at ~500Hz (2ms interval) for minimal latency
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        // Poll at ~1000Hz (1ms interval) for minimal latency
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 
@@ -665,7 +665,7 @@ void MakcuConnection::listeningThreadFunc()
                 }
             }
         } else {
-            std::this_thread::sleep_for(std::chrono::microseconds(25));
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
         }
     }
 }
