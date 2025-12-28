@@ -567,36 +567,25 @@ void MakcuConnection::startButtonPolling()
     }
 
     polling_enabled_ = true;
-    polling_thread_ = std::thread(&MakcuConnection::buttonPollingThreadFunc, this);
-    std::cout << "[Makcu] Button state polling started" << std::endl;
+
+    // Enable button streaming mode: mode=1 (raw input), period=1ms
+    // Device will automatically send button state changes as binary mask
+    sendCommand("km.buttons(1,1)");
+
+    std::cout << "[Makcu] Button streaming mode enabled (event-driven)" << std::endl;
 }
 
 void MakcuConnection::stopButtonPolling()
 {
+    // Disable button streaming
+    sendCommand("km.buttons(0)");
     polling_enabled_ = false;
-    if (polling_thread_.joinable()) {
-        polling_thread_.join();
-    }
 }
 
 void MakcuConnection::buttonPollingThreadFunc()
 {
-    bool prev_left = false;
-    bool prev_right = false;
-    bool prev_middle = false;
-
-    while (polling_enabled_.load() && is_open_) {
-        // Query only left and right button states (middle not needed)
-        sendCommand("km.left()");
-        sendCommand("km.right()");
-
-        // Check for state changes
-        // Note: actual state will be updated via processIncomingLine
-        // when we receive responses like "0" or "1"
-
-        // Poll at ~1000Hz (1ms interval) for minimal latency
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    // No longer used - streaming mode is event-driven
+    // Kept for API compatibility
 }
 
 void MakcuConnection::sendCommand(const std::string& command)
@@ -644,6 +633,8 @@ void MakcuConnection::startListening()
 void MakcuConnection::listeningThreadFunc()
 {
     std::string buffer;
+    static bool prev_left = false;
+    static bool prev_right = false;
 
     while (listening_) {
         if (!is_open_) {
@@ -655,14 +646,57 @@ void MakcuConnection::listeningThreadFunc()
         if (!data.empty()) {
             buffer += data;
 
-            size_t pos = 0;
-            while ((pos = buffer.find('\n')) != std::string::npos) {
-                std::string line = buffer.substr(0, pos);
-                buffer.erase(0, pos + 1);
+            // Process buffer - look for both line-based and binary streaming data
+            size_t i = 0;
+            while (i < buffer.size()) {
+                // Check for button streaming prefix "km.buttons"
+                if (buffer.size() >= i + 11 && buffer.compare(i, 10, "km.buttons") == 0) {
+                    // Binary mask is the next byte after "km.buttons"
+                    uint8_t mask = static_cast<uint8_t>(buffer[i + 10]);
 
-                if (!line.empty()) {
-                    processIncomingLine(line);
+                    bool new_left = (mask & 0x01) != 0;
+                    bool new_right = (mask & 0x02) != 0;
+
+                    bool state_changed = false;
+                    if (new_left != prev_left) {
+                        left_mouse_active = new_left;
+                        prev_left = new_left;
+                        state_changed = true;
+                    }
+                    if (new_right != prev_right) {
+                        right_mouse_active = new_right;
+                        prev_right = new_right;
+                        state_changed = true;
+                    }
+
+                    if (state_changed && state_callback_) {
+                        state_callback_(left_mouse_active, right_mouse_active);
+                    }
+
+                    // Remove processed data (10 bytes prefix + 1 byte mask)
+                    buffer.erase(i, 11);
+                    continue;
                 }
+
+                // Look for newline to process text lines
+                size_t nl = buffer.find('\n', i);
+                if (nl != std::string::npos) {
+                    std::string line = buffer.substr(i, nl - i);
+                    buffer.erase(i, nl - i + 1);
+
+                    // Remove trailing CR if present
+                    if (!line.empty() && line.back() == '\r') {
+                        line.pop_back();
+                    }
+
+                    if (!line.empty()) {
+                        processIncomingLine(line);
+                    }
+                    continue;
+                }
+
+                // No complete message found, wait for more data
+                break;
             }
         } else {
             std::this_thread::sleep_for(std::chrono::microseconds(10));
@@ -677,17 +711,40 @@ void MakcuConnection::processIncomingLine(const std::string& line)
         return;
     }
 
-    bool state_changed = false;
     static bool prev_left = false;
     static bool prev_right = false;
+
+    // Check for button streaming data: "km.buttons<mask_u8>"
+    // Format: km.buttons followed by a single byte (binary mask)
+    // bit 0=left, 1=right, 2=middle, 3=side1, 4=side2
+    if (line.rfind("km.buttons", 0) == 0 && line.length() > 10) {
+        // Extract the binary mask byte after "km.buttons"
+        uint8_t mask = static_cast<uint8_t>(line[10]);
+
+        bool new_left = (mask & 0x01) != 0;   // bit 0 = left
+        bool new_right = (mask & 0x02) != 0;  // bit 1 = right
+
+        bool state_changed = false;
+        if (new_left != prev_left) {
+            left_mouse_active = new_left;
+            prev_left = new_left;
+            state_changed = true;
+        }
+        if (new_right != prev_right) {
+            right_mouse_active = new_right;
+            prev_right = new_right;
+            state_changed = true;
+        }
+
+        if (state_changed && state_callback_) {
+            state_callback_(left_mouse_active, right_mouse_active);
+        }
+        return;
+    }
+
+    // Fallback: handle legacy polling responses (km.left(), km.right())
     static std::string last_command;
 
-    // Makcu response format:
-    // >>> km.left()
-    // 0
-    // So we track the command and then parse the next line as the response
-
-    // Check if this line is a command echo
     if (line.find("km.left()") != std::string::npos) {
         last_command = "left";
         return;
@@ -696,15 +753,11 @@ void MakcuConnection::processIncomingLine(const std::string& line)
         last_command = "right";
         return;
     }
-    else if (line.find("km.middle()") != std::string::npos) {
-        last_command = "middle";
-        return;
-    }
 
-    // If we have a pending command, this line should be the numeric response
     if (!last_command.empty()) {
         try {
             int state = std::stoi(line);
+            bool state_changed = false;
 
             if (last_command == "left") {
                 bool new_left = (state > 0);
@@ -724,14 +777,13 @@ void MakcuConnection::processIncomingLine(const std::string& line)
             }
 
             last_command.clear();
+
+            if (state_changed && state_callback_) {
+                state_callback_(left_mouse_active, right_mouse_active);
+            }
         } catch (const std::exception&) {
-            // Not a number, ignore
             last_command.clear();
         }
-    }
-
-    if (state_changed && state_callback_) {
-        state_callback_(left_mouse_active, right_mouse_active);
     }
 }
 
