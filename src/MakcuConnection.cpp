@@ -677,6 +677,9 @@ void MakcuConnection::processIncomingLine(const std::string& line)
         return;
     }
 
+    // Debug: print all incoming lines
+    std::cout << "[Makcu] Received: '" << line << "'" << std::endl;
+
     bool state_changed = false;
     static bool prev_left = false;
     static bool prev_right = false;
