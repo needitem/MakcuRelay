@@ -633,8 +633,6 @@ void MakcuConnection::startListening()
 void MakcuConnection::listeningThreadFunc()
 {
     std::string buffer;
-    static bool prev_left = false;
-    static bool prev_right = false;
 
     while (listening_) {
         if (!is_open_) {
@@ -646,90 +644,20 @@ void MakcuConnection::listeningThreadFunc()
         if (!data.empty()) {
             buffer += data;
 
-            // Process buffer - handle both streaming binary and text responses
-            size_t pos = 0;
-            while (pos < buffer.size()) {
-                // Look for "km.buttons" streaming prefix (10 chars)
-                size_t btn_pos = buffer.find("km.buttons", pos);
-                size_t nl_pos = buffer.find('\n', pos);
+            // Process complete lines
+            size_t pos;
+            while ((pos = buffer.find('\n')) != std::string::npos) {
+                std::string line = buffer.substr(0, pos);
+                buffer.erase(0, pos + 1);
 
-                // If km.buttons found before newline, process streaming data
-                if (btn_pos != std::string::npos && btn_pos < buffer.size() - 10) {
-                    // Need at least 11 bytes: "km.buttons" (10) + mask (1)
-                    if (btn_pos + 11 <= buffer.size()) {
-                        uint8_t mask = static_cast<uint8_t>(buffer[btn_pos + 10]);
-
-                        bool new_left = (mask & 0x01) != 0;
-                        bool new_right = (mask & 0x02) != 0;
-
-                        bool state_changed = false;
-                        if (new_left != prev_left) {
-                            left_mouse_active = new_left;
-                            prev_left = new_left;
-                            state_changed = true;
-                        }
-                        if (new_right != prev_right) {
-                            right_mouse_active = new_right;
-                            prev_right = new_right;
-                            state_changed = true;
-                        }
-
-                        if (state_changed) {
-                            std::cout << "[Makcu] Button: L=" << (new_left ? "1" : "0") 
-                                      << " R=" << (new_right ? "1" : "0") << std::endl;
-                            if (state_callback_) {
-                                state_callback_(left_mouse_active, right_mouse_active);
-                            }
-                        }
-
-                        // Skip past this streaming message
-                        // Find next \n after the mask byte
-                        size_t end = buffer.find('\n', btn_pos + 11);
-                        if (end != std::string::npos) {
-                            buffer.erase(0, end + 1);
-                            pos = 0;
-                            continue;
-                        } else {
-                            // No newline yet, erase up to mask and wait
-                            buffer.erase(0, btn_pos + 11);
-                            pos = 0;
-                            break;
-                        }
-                    } else {
-                        // Not enough data yet
-                        break;
-                    }
+                // Remove trailing CR
+                if (!line.empty() && line.back() == '\r') {
+                    line.pop_back();
                 }
 
-                // Process regular text line
-                if (nl_pos != std::string::npos) {
-                    std::string line = buffer.substr(0, nl_pos);
-                    buffer.erase(0, nl_pos + 1);
-                    pos = 0;
-
-                    // Remove trailing CR
-                    if (!line.empty() && line.back() == '\r') {
-                        line.pop_back();
-                    }
-
-                    // Also handle >>> prompt attached to line
-                    size_t prompt_pos = line.find(">>>");
-                    if (prompt_pos != std::string::npos) {
-                        std::string before_prompt = line.substr(0, prompt_pos);
-                        if (!before_prompt.empty()) {
-                            processIncomingLine(before_prompt);
-                        }
-                        continue;
-                    }
-
-                    if (!line.empty()) {
-                        processIncomingLine(line);
-                    }
-                    continue;
+                if (!line.empty()) {
+                    processIncomingLine(line);
                 }
-
-                // No complete message, wait for more data
-                break;
             }
         } else {
             std::this_thread::sleep_for(std::chrono::microseconds(10));
