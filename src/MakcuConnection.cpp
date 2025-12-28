@@ -724,6 +724,16 @@ void MakcuConnection::listeningThreadFunc()
                         line.pop_back();
                     }
 
+                    // Also handle >>> prompt attached to line
+                    size_t prompt_pos = line.find(">>>");
+                    if (prompt_pos != std::string::npos) {
+                        std::string before_prompt = line.substr(0, prompt_pos);
+                        if (!before_prompt.empty()) {
+                            processIncomingLine(before_prompt);
+                        }
+                        continue;
+                    }
+
                     if (!line.empty()) {
                         processIncomingLine(line);
                     }
