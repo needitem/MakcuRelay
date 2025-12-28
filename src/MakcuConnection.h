@@ -35,9 +35,11 @@ public:
 
     bool left_mouse_active;
     bool right_mouse_active;
+    bool side1_active;
+    bool side2_active;
 
     // State broadcast callback
-    using StateChangeCallback = std::function<void(bool left_mouse, bool right_mouse)>;
+    using StateChangeCallback = std::function<void(bool left_mouse, bool right_mouse, bool side1, bool side2)>;
     void setStateChangeCallback(StateChangeCallback callback);
 
     // Button state polling

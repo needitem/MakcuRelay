@@ -40,6 +40,8 @@ MakcuConnection::MakcuConnection(const std::string& port, unsigned int /*baud_ra
       listening_(false),
       left_mouse_active(false),
       right_mouse_active(false),
+      side1_active(false),
+      side2_active(false),
       port_name_(port),
       state_callback_(nullptr)
 {
@@ -584,6 +586,8 @@ void MakcuConnection::buttonPollingThreadFunc()
     while (polling_enabled_.load() && is_open_) {
         sendCommand("km.left()");
         sendCommand("km.right()");
+        sendCommand("km.side1()");
+        sendCommand("km.side2()");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
@@ -674,6 +678,8 @@ void MakcuConnection::processIncomingLine(const std::string& line)
 
     static bool prev_left = false;
     static bool prev_right = false;
+    static bool prev_side1 = false;
+    static bool prev_side2 = false;
     static std::string last_command;
 
     // Check for command echo
@@ -683,6 +689,14 @@ void MakcuConnection::processIncomingLine(const std::string& line)
     }
     else if (line.find("km.right()") != std::string::npos) {
         last_command = "right";
+        return;
+    }
+    else if (line.find("km.side1()") != std::string::npos) {
+        last_command = "side1";
+        return;
+    }
+    else if (line.find("km.side2()") != std::string::npos) {
+        last_command = "side2";
         return;
     }
 
@@ -708,11 +722,27 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     state_changed = true;
                 }
             }
+            else if (last_command == "side1") {
+                bool new_side1 = (state > 0);
+                if (new_side1 != prev_side1) {
+                    side1_active = new_side1;
+                    prev_side1 = new_side1;
+                    state_changed = true;
+                }
+            }
+            else if (last_command == "side2") {
+                bool new_side2 = (state > 0);
+                if (new_side2 != prev_side2) {
+                    side2_active = new_side2;
+                    prev_side2 = new_side2;
+                    state_changed = true;
+                }
+            }
 
             last_command.clear();
 
             if (state_changed && state_callback_) {
-                state_callback_(left_mouse_active, right_mouse_active);
+                state_callback_(left_mouse_active, right_mouse_active, side1_active, side2_active);
             }
         } catch (const std::exception&) {
             last_command.clear();
