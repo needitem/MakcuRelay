@@ -739,6 +739,9 @@ void MakcuConnection::listeningThreadFunc()
 
 void MakcuConnection::processIncomingLine(const std::string& line)
 {
+    // Debug: show what we're parsing
+    std::cout << "[Parse] line: \"" << line << "\" len=" << line.length() << std::endl;
+
     // Skip empty lines and prompts
     if (line.empty() || line == ">>>") {
         return;
