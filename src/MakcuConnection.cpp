@@ -567,25 +567,27 @@ void MakcuConnection::startButtonPolling()
     }
 
     polling_enabled_ = true;
-
-    // Enable button streaming mode: mode=1 (raw input), period=1ms
-    // Device will automatically send button state changes as binary mask
-    sendCommand("km.buttons(1,1)");
-
-    std::cout << "[Makcu] Button streaming mode enabled (event-driven)" << std::endl;
+    polling_thread_ = std::thread(&MakcuConnection::buttonPollingThreadFunc, this);
+    std::cout << "[Makcu] Button state polling started" << std::endl;
 }
 
 void MakcuConnection::stopButtonPolling()
 {
-    // Disable button streaming
-    sendCommand("km.buttons(0)");
     polling_enabled_ = false;
+    if (polling_thread_.joinable()) {
+        polling_thread_.join();
+    }
 }
 
 void MakcuConnection::buttonPollingThreadFunc()
 {
-    // No longer used - streaming mode is event-driven
-    // Kept for API compatibility
+    while (polling_enabled_.load() && is_open_) {
+        sendCommand("km.left()");
+        sendCommand("km.right()");
+
+        // Poll at ~1000Hz (1ms interval)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
 }
 
 void MakcuConnection::sendCommand(const std::string& command)
