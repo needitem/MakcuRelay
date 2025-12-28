@@ -168,7 +168,7 @@ int runRelay(int argc, char** argv)
     std::memset(&g_broadcastAddr, 0, sizeof(g_broadcastAddr));
     g_broadcastAddr.sin_family = AF_INET;
     g_broadcastAddr.sin_port = htons(broadcastPort);
-    if (InetPtonA(AF_INET, broadcastIP.c_str(), &g_broadcastAddr.sin_addr) != 1) {
+    if (inet_pton(AF_INET, broadcastIP.c_str(), &g_broadcastAddr.sin_addr) != 1) {
         std::cerr << "[MakcuRelay] Warning: Invalid broadcast IP: " << broadcastIP << std::endl;
     }
 
