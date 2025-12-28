@@ -32,7 +32,6 @@ static std::mutex g_broadcastMutex;
 
 void sendBroadcastEvent(const char* event)
 {
-    std::cout << "[MakcuRelay] Sending event: " << event << std::endl;
     std::lock_guard<std::mutex> lock(g_broadcastMutex);
 #ifdef _WIN32
     if (g_broadcastSock != INVALID_SOCKET) {
