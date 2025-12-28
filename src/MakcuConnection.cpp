@@ -633,8 +633,6 @@ void MakcuConnection::startListening()
 void MakcuConnection::listeningThreadFunc()
 {
     std::string buffer;
-    static bool prev_left = false;
-    static bool prev_right = false;
 
     while (listening_) {
         if (!is_open_) {
@@ -646,57 +644,20 @@ void MakcuConnection::listeningThreadFunc()
         if (!data.empty()) {
             buffer += data;
 
-            // Process buffer - look for both line-based and binary streaming data
-            size_t i = 0;
-            while (i < buffer.size()) {
-                // Check for button streaming prefix "km.buttons"
-                if (buffer.size() >= i + 11 && buffer.compare(i, 10, "km.buttons") == 0) {
-                    // Binary mask is the next byte after "km.buttons"
-                    uint8_t mask = static_cast<uint8_t>(buffer[i + 10]);
+            // Process complete lines
+            size_t pos = 0;
+            while ((pos = buffer.find('\n')) != std::string::npos) {
+                std::string line = buffer.substr(0, pos);
+                buffer.erase(0, pos + 1);
 
-                    bool new_left = (mask & 0x01) != 0;
-                    bool new_right = (mask & 0x02) != 0;
-
-                    bool state_changed = false;
-                    if (new_left != prev_left) {
-                        left_mouse_active = new_left;
-                        prev_left = new_left;
-                        state_changed = true;
-                    }
-                    if (new_right != prev_right) {
-                        right_mouse_active = new_right;
-                        prev_right = new_right;
-                        state_changed = true;
-                    }
-
-                    if (state_changed && state_callback_) {
-                        state_callback_(left_mouse_active, right_mouse_active);
-                    }
-
-                    // Remove processed data (10 bytes prefix + 1 byte mask)
-                    buffer.erase(i, 11);
-                    continue;
+                // Remove trailing CR if present
+                if (!line.empty() && line.back() == '\r') {
+                    line.pop_back();
                 }
 
-                // Look for newline to process text lines
-                size_t nl = buffer.find('\n', i);
-                if (nl != std::string::npos) {
-                    std::string line = buffer.substr(i, nl - i);
-                    buffer.erase(i, nl - i + 1);
-
-                    // Remove trailing CR if present
-                    if (!line.empty() && line.back() == '\r') {
-                        line.pop_back();
-                    }
-
-                    if (!line.empty()) {
-                        processIncomingLine(line);
-                    }
-                    continue;
+                if (!line.empty()) {
+                    processIncomingLine(line);
                 }
-
-                // No complete message found, wait for more data
-                break;
             }
         } else {
             std::this_thread::sleep_for(std::chrono::microseconds(10));
@@ -714,12 +675,27 @@ void MakcuConnection::processIncomingLine(const std::string& line)
     static bool prev_left = false;
     static bool prev_right = false;
 
-    // Check for button streaming data: "km.buttons<mask_u8>"
-    // Format: km.buttons followed by a single byte (binary mask)
-    // bit 0=left, 1=right, 2=middle, 3=side1, 4=side2
-    if (line.rfind("km.buttons", 0) == 0 && line.length() > 10) {
-        // Extract the binary mask byte after "km.buttons"
-        uint8_t mask = static_cast<uint8_t>(line[10]);
+    // Check for button streaming data
+    // Format: "km.buttons<mask>" where mask is a single byte (binary)
+    // or numeric format like "km.buttons 3" or just the mask value
+    if (line.rfind("km.buttons", 0) == 0) {
+        uint8_t mask = 0;
+
+        if (line.length() > 10) {
+            // Check if it's binary (single byte after prefix) or text format
+            char next_char = line[10];
+            if (next_char == ' ' || next_char == ':' || next_char == '=') {
+                // Text format: "km.buttons 3" or "km.buttons:3"
+                try {
+                    mask = static_cast<uint8_t>(std::stoi(line.substr(11)));
+                } catch (...) {
+                    return;
+                }
+            } else {
+                // Binary format: single byte mask directly after prefix
+                mask = static_cast<uint8_t>(next_char);
+            }
+        }
 
         bool new_left = (mask & 0x01) != 0;   // bit 0 = left
         bool new_right = (mask & 0x02) != 0;  // bit 1 = right
