@@ -646,18 +646,6 @@ void MakcuConnection::listeningThreadFunc()
         if (!data.empty()) {
             buffer += data;
 
-            // DEBUG: print raw data received
-            std::cout << "[Makcu] Raw data (" << data.size() << " bytes): ";
-            for (size_t i = 0; i < data.size() && i < 50; i++) {
-                unsigned char c = static_cast<unsigned char>(data[i]);
-                if (c >= 32 && c < 127) {
-                    std::cout << c;
-                } else {
-                    std::cout << "[" << (int)c << "]";
-                }
-            }
-            std::cout << std::endl;
-
             // Process buffer - handle both streaming binary and text responses
             size_t pos = 0;
             while (pos < buffer.size()) {
