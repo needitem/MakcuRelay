@@ -698,7 +698,6 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     left_mouse_active = new_left;
                     prev_left = new_left;
                     state_changed = true;
-                    std::cout << "[Makcu] Left: " << (new_left ? "DOWN" : "UP") << std::endl;
                 }
             }
             else if (last_command == "right") {
@@ -707,7 +706,6 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     right_mouse_active = new_right;
                     prev_right = new_right;
                     state_changed = true;
-                    std::cout << "[Makcu] Right: " << (new_right ? "DOWN" : "UP") << std::endl;
                 }
             }
 
