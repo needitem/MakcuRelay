@@ -586,6 +586,7 @@ void MakcuConnection::buttonPollingThreadFunc()
     while (polling_enabled_.load() && is_open_) {
         sendCommand("km.left()");
         sendCommand("km.right()");
+        sendCommand("km.middle()");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
@@ -645,6 +646,15 @@ void MakcuConnection::listeningThreadFunc()
         std::string data = read();
         if (!data.empty()) {
             buffer += data;
+
+            // DEBUG: print raw data
+            std::cout << "[Raw] ";
+            for (size_t i = 0; i < data.size() && i < 80; i++) {
+                unsigned char c = static_cast<unsigned char>(data[i]);
+                if (c >= 32 && c < 127) std::cout << c;
+                else std::cout << "[" << (int)c << "]";
+            }
+            std::cout << std::endl;
 
             // Process complete lines
             size_t pos;
