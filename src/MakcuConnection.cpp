@@ -586,8 +586,6 @@ void MakcuConnection::buttonPollingThreadFunc()
     while (polling_enabled_.load() && is_open_) {
         sendCommand("km.left()");
         sendCommand("km.right()");
-        sendCommand("km.side1()");
-        sendCommand("km.side2()");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
@@ -712,7 +710,6 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     left_mouse_active = new_left;
                     prev_left = new_left;
                     state_changed = true;
-                    std::cout << "[Makcu] Left: " << (new_left ? "DOWN" : "UP") << std::endl;
                 }
             }
             else if (last_command == "right") {
@@ -721,7 +718,6 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     right_mouse_active = new_right;
                     prev_right = new_right;
                     state_changed = true;
-                    std::cout << "[Makcu] Right: " << (new_right ? "DOWN" : "UP") << std::endl;
                 }
             }
             else if (last_command == "side1") {
@@ -730,7 +726,6 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     side1_active = new_side1;
                     prev_side1 = new_side1;
                     state_changed = true;
-                    std::cout << "[Makcu] Side1: " << (new_side1 ? "DOWN" : "UP") << std::endl;
                 }
             }
             else if (last_command == "side2") {
@@ -739,7 +734,6 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     side2_active = new_side2;
                     prev_side2 = new_side2;
                     state_changed = true;
-                    std::cout << "[Makcu] Side2: " << (new_side2 ? "DOWN" : "UP") << std::endl;
                 }
             }
 
