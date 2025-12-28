@@ -746,17 +746,11 @@ void MakcuConnection::processIncomingLine(const std::string& line)
         return;
     }
 
-    // Skip echo of our commands
-    if (line.find("km.buttons(") != std::string::npos) {
-        return;
-    }
-
     static bool prev_left = false;
     static bool prev_right = false;
-
-    // Fallback: handle legacy polling responses (km.left(), km.right())
     static std::string last_command;
 
+    // Check for command echo
     if (line.find("km.left()") != std::string::npos) {
         last_command = "left";
         return;
@@ -766,6 +760,7 @@ void MakcuConnection::processIncomingLine(const std::string& line)
         return;
     }
 
+    // Parse numeric response
     if (!last_command.empty()) {
         try {
             int state = std::stoi(line);
@@ -777,6 +772,7 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     left_mouse_active = new_left;
                     prev_left = new_left;
                     state_changed = true;
+                    std::cout << "[Makcu] Left button: " << state << std::endl;
                 }
             }
             else if (last_command == "right") {
@@ -785,6 +781,7 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     right_mouse_active = new_right;
                     prev_right = new_right;
                     state_changed = true;
+                    std::cout << "[Makcu] Right button: " << state << std::endl;
                 }
             }
 
