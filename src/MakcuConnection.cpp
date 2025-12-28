@@ -673,8 +673,12 @@ void MakcuConnection::listeningThreadFunc()
                             state_changed = true;
                         }
 
-                        if (state_changed && state_callback_) {
-                            state_callback_(left_mouse_active, right_mouse_active);
+                        if (state_changed) {
+                            std::cout << "[Makcu] Button: L=" << (new_left ? "1" : "0") 
+                                      << " R=" << (new_right ? "1" : "0") << std::endl;
+                            if (state_callback_) {
+                                state_callback_(left_mouse_active, right_mouse_active);
+                            }
                         }
 
                         // Skip past this streaming message
