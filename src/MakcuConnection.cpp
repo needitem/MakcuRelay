@@ -667,9 +667,6 @@ void MakcuConnection::listeningThreadFunc()
 
 void MakcuConnection::processIncomingLine(const std::string& line)
 {
-    // Debug: show what we're parsing
-    std::cout << "[Parse] line: \"" << line << "\" len=" << line.length() << std::endl;
-
     // Skip empty lines and prompts
     if (line.empty() || line == ">>>") {
         return;
@@ -701,7 +698,6 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     left_mouse_active = new_left;
                     prev_left = new_left;
                     state_changed = true;
-                    std::cout << "[Makcu] Left button: " << state << std::endl;
                 }
             }
             else if (last_command == "right") {
@@ -710,7 +706,6 @@ void MakcuConnection::processIncomingLine(const std::string& line)
                     right_mouse_active = new_right;
                     prev_right = new_right;
                     state_changed = true;
-                    std::cout << "[Makcu] Right button: " << state << std::endl;
                 }
             }
 
