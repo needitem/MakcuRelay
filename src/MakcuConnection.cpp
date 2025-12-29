@@ -583,27 +583,6 @@ void MakcuConnection::stopButtonPolling()
 
 void MakcuConnection::buttonPollingThreadFunc()
 {
-    // Wait for connection
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    
-    // Enable catch mode for side buttons - this might stream events
-    std::cout << "[Makcu] Enabling catch mode for side buttons..." << std::endl;
-    
-    sendCommand("km.catch_ms1(1)");
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    
-    sendCommand("km.catch_ms2(1)");
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    
-    std::cout << "[Makcu] Press side buttons now (5 seconds)..." << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-    
-    // Disable catch mode
-    sendCommand("km.catch_ms1(0)");
-    sendCommand("km.catch_ms2(0)");
-    
-    std::cout << "[Makcu] Starting polling..." << std::endl;
-    
     while (polling_enabled_.load() && is_open_) {
         sendCommand("km.left()");
         sendCommand("km.right()");
@@ -693,13 +672,6 @@ void MakcuConnection::processIncomingLine(const std::string& line)
     // Skip empty lines and prompts
     if (line.empty() || line == ">>>") {
         return;
-    }
-
-    // Debug: show responses to test commands
-    if (line.find("km.left()") == std::string::npos && 
-        line.find("km.right()") == std::string::npos &&
-        line != "0" && line != "1") {
-        std::cout << "[Response] " << line << std::endl;
     }
 
     static bool prev_left = false;
