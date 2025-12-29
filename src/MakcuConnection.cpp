@@ -589,21 +589,23 @@ void MakcuConnection::buttonPollingThreadFunc()
     // Test different button query commands
     std::cout << "[Makcu] Testing button commands..." << std::endl;
     
-    sendCommand("km.middle()");
+    // These might work based on API naming patterns
+    sendCommand("km.side1()");
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
-    // Try button with number parameter (like turbo uses 1-5)
-    sendCommand("km.button(4)");
+    sendCommand("km.side2()");
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
-    sendCommand("km.button(5)");
+    sendCommand("km.m4()");
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
-    // Try ms1/ms2 (mouse side buttons)
-    sendCommand("km.ms1()");
+    sendCommand("km.m5()");
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
-    sendCommand("km.ms2()");
+    sendCommand("km.xbutton1()");
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    
+    sendCommand("km.xbutton2()");
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
     std::cout << "[Makcu] Starting polling..." << std::endl;
