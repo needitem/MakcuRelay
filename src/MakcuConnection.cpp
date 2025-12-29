@@ -695,6 +695,13 @@ void MakcuConnection::processIncomingLine(const std::string& line)
         return;
     }
 
+    // Debug: print all incoming lines during testing
+    if (line.find("km.left()") == std::string::npos && 
+        line.find("km.right()") == std::string::npos &&
+        line != "0" && line != "1") {
+        std::cout << "[Makcu Response] " << line << std::endl;
+    }
+
     static bool prev_left = false;
     static bool prev_right = false;
     static bool prev_side1 = false;
