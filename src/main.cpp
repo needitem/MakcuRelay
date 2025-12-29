@@ -174,9 +174,19 @@ int runRelay(int argc, char** argv)
 
     // Setup mouse button state callback to broadcast events
     makcu.setStateChangeCallback([](bool left_mouse, bool right_mouse, bool side1, bool side2) {
+        (void)side1; (void)side2;  // Unused for now
+        static bool prev_left = false;
         static bool prev_right = false;
-        static bool prev_side1 = false;
-        static bool prev_side2 = false;
+
+        // Left mouse button for shooting (aim_shoot_offset)
+        if (left_mouse != prev_left) {
+            if (left_mouse) {
+                sendBroadcastEvent("SHOOT:START");
+            } else {
+                sendBroadcastEvent("SHOOT:STOP");
+            }
+            prev_left = left_mouse;
+        }
 
         // Right mouse button for aiming
         if (right_mouse != prev_right) {
@@ -186,25 +196,6 @@ int runRelay(int argc, char** argv)
                 sendBroadcastEvent("AIM:STOP");
             }
             prev_right = right_mouse;
-        }
-
-        // Side buttons (for future use)
-        if (side1 != prev_side1) {
-            if (side1) {
-                sendBroadcastEvent("SIDE1:DOWN");
-            } else {
-                sendBroadcastEvent("SIDE1:UP");
-            }
-            prev_side1 = side1;
-        }
-
-        if (side2 != prev_side2) {
-            if (side2) {
-                sendBroadcastEvent("SIDE2:DOWN");
-            } else {
-                sendBroadcastEvent("SIDE2:UP");
-            }
-            prev_side2 = side2;
         }
     });
 
