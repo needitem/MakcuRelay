@@ -586,17 +586,23 @@ void MakcuConnection::buttonPollingThreadFunc()
     // Wait for connection to stabilize
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
-    // Try buttons streaming
-    std::cout << "[Makcu] Testing km.buttons(1,1)..." << std::endl;
-    sendCommand("km.buttons(1,1)");
+    // Check firmware version
+    std::cout << "[Makcu] Checking version..." << std::endl;
+    sendCommand("km.version()");
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     
-    // Wait and see if streaming data comes
-    for (int i = 0; i < 50 && polling_enabled_.load(); i++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    // Try buttons query (no params)
+    std::cout << "[Makcu] Testing km.buttons()..." << std::endl;
+    sendCommand("km.buttons()");
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    
+    // Try axis streaming (might include buttons)
+    std::cout << "[Makcu] Testing km.axis(1,1)..." << std::endl;
+    sendCommand("km.axis(1,1)");
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+    sendCommand("km.axis(0)");
     
     std::cout << "[Makcu] Switching to polling mode..." << std::endl;
-    sendCommand("km.buttons(0)");
     
     while (polling_enabled_.load() && is_open_) {
         sendCommand("km.left()");
@@ -660,15 +666,6 @@ void MakcuConnection::listeningThreadFunc()
         std::string data = read();
         if (!data.empty()) {
             buffer += data;
-
-            // DEBUG: show raw data
-            std::cout << "[Raw:" << data.size() << "] ";
-            for (size_t i = 0; i < data.size(); i++) {
-                unsigned char c = static_cast<unsigned char>(data[i]);
-                if (c >= 32 && c < 127) std::cout << c;
-                else std::cout << "[" << (int)c << "]";
-            }
-            std::cout << std::endl;
 
             // Process complete lines
             size_t pos;
