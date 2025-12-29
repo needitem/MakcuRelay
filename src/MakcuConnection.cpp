@@ -586,24 +586,21 @@ void MakcuConnection::buttonPollingThreadFunc()
     // Wait for connection
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
-    // Test catch/lock commands for side buttons
-    std::cout << "[Makcu] Testing catch/lock commands..." << std::endl;
+    // Enable catch mode for side buttons - this might stream events
+    std::cout << "[Makcu] Enabling catch mode for side buttons..." << std::endl;
     
-    sendCommand("km.catch_ms1()");
+    sendCommand("km.catch_ms1(1)");
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
-    sendCommand("km.catch_ms2()");
+    sendCommand("km.catch_ms2(1)");
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
-    sendCommand("km.lock_ms1()");
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::cout << "[Makcu] Press side buttons now (5 seconds)..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(5));
     
-    sendCommand("km.lock_ms2()");
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    
-    // Try help to see all commands
-    sendCommand("km.help()");
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    // Disable catch mode
+    sendCommand("km.catch_ms1(0)");
+    sendCommand("km.catch_ms2(0)");
     
     std::cout << "[Makcu] Starting polling..." << std::endl;
     
