@@ -583,11 +583,14 @@ void MakcuConnection::stopButtonPolling()
 
 void MakcuConnection::buttonPollingThreadFunc()
 {
+    // Try mouse streaming mode instead of individual polling
+    sendCommand("km.mouse(1,1)");
+    
     while (polling_enabled_.load() && is_open_) {
-        sendCommand("km.left()");
-        sendCommand("km.right()");
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+    
+    sendCommand("km.mouse(0)");
 }
 
 void MakcuConnection::sendCommand(const std::string& command)
@@ -645,6 +648,15 @@ void MakcuConnection::listeningThreadFunc()
         std::string data = read();
         if (!data.empty()) {
             buffer += data;
+
+            // DEBUG
+            std::cout << "[Raw] ";
+            for (size_t i = 0; i < data.size() && i < 100; i++) {
+                unsigned char c = static_cast<unsigned char>(data[i]);
+                if (c >= 32 && c < 127) std::cout << c;
+                else std::cout << "[" << (int)c << "]";
+            }
+            std::cout << std::endl;
 
             // Process complete lines
             size_t pos;
