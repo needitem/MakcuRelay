@@ -583,10 +583,6 @@ void MakcuConnection::stopButtonPolling()
 
 void MakcuConnection::buttonPollingThreadFunc()
 {
-    // Test what commands the device supports
-    sendCommand("km.help()");
-    std::this_thread::sleep_for(std::chrono::seconds(3));
-    
     while (polling_enabled_.load() && is_open_) {
         sendCommand("km.left()");
         sendCommand("km.right()");
@@ -649,15 +645,6 @@ void MakcuConnection::listeningThreadFunc()
         std::string data = read();
         if (!data.empty()) {
             buffer += data;
-
-            // DEBUG
-            std::cout << "[Raw] ";
-            for (size_t i = 0; i < data.size() && i < 100; i++) {
-                unsigned char c = static_cast<unsigned char>(data[i]);
-                if (c >= 32 && c < 127) std::cout << c;
-                else std::cout << "[" << (int)c << "]";
-            }
-            std::cout << std::endl;
 
             // Process complete lines
             size_t pos;
