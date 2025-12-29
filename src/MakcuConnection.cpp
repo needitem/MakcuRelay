@@ -583,6 +583,31 @@ void MakcuConnection::stopButtonPolling()
 
 void MakcuConnection::buttonPollingThreadFunc()
 {
+    // Wait for connection
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    // Test different button query commands
+    std::cout << "[Makcu] Testing button commands..." << std::endl;
+    
+    sendCommand("km.middle()");
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    
+    // Try button with number parameter (like turbo uses 1-5)
+    sendCommand("km.button(4)");
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    
+    sendCommand("km.button(5)");
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    
+    // Try ms1/ms2 (mouse side buttons)
+    sendCommand("km.ms1()");
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    
+    sendCommand("km.ms2()");
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    
+    std::cout << "[Makcu] Starting polling..." << std::endl;
+    
     while (polling_enabled_.load() && is_open_) {
         sendCommand("km.left()");
         sendCommand("km.right()");
@@ -672,6 +697,13 @@ void MakcuConnection::processIncomingLine(const std::string& line)
     // Skip empty lines and prompts
     if (line.empty() || line == ">>>") {
         return;
+    }
+
+    // Debug: show responses to test commands
+    if (line.find("km.left()") == std::string::npos && 
+        line.find("km.right()") == std::string::npos &&
+        line != "0" && line != "1") {
+        std::cout << "[Response] " << line << std::endl;
     }
 
     static bool prev_left = false;
