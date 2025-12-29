@@ -583,27 +583,6 @@ void MakcuConnection::stopButtonPolling()
 
 void MakcuConnection::buttonPollingThreadFunc()
 {
-    // Wait for connection to stabilize
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    
-    // Check firmware version
-    std::cout << "[Makcu] Checking version..." << std::endl;
-    sendCommand("km.version()");
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    
-    // Try buttons query (no params)
-    std::cout << "[Makcu] Testing km.buttons()..." << std::endl;
-    sendCommand("km.buttons()");
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    
-    // Try axis streaming (might include buttons)
-    std::cout << "[Makcu] Testing km.axis(1,1)..." << std::endl;
-    sendCommand("km.axis(1,1)");
-    std::this_thread::sleep_for(std::chrono::seconds(3));
-    sendCommand("km.axis(0)");
-    
-    std::cout << "[Makcu] Switching to polling mode..." << std::endl;
-    
     while (polling_enabled_.load() && is_open_) {
         sendCommand("km.left()");
         sendCommand("km.right()");
@@ -693,13 +672,6 @@ void MakcuConnection::processIncomingLine(const std::string& line)
     // Skip empty lines and prompts
     if (line.empty() || line == ">>>") {
         return;
-    }
-
-    // Debug: print all incoming lines during testing
-    if (line.find("km.left()") == std::string::npos && 
-        line.find("km.right()") == std::string::npos &&
-        line != "0" && line != "1") {
-        std::cout << "[Makcu Response] " << line << std::endl;
     }
 
     static bool prev_left = false;
