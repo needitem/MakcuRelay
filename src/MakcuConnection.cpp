@@ -583,14 +583,15 @@ void MakcuConnection::stopButtonPolling()
 
 void MakcuConnection::buttonPollingThreadFunc()
 {
-    // Try mouse streaming mode instead of individual polling
-    sendCommand("km.mouse(1,1)");
+    // Test what commands the device supports
+    sendCommand("km.help()");
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     
     while (polling_enabled_.load() && is_open_) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        sendCommand("km.left()");
+        sendCommand("km.right()");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    
-    sendCommand("km.mouse(0)");
 }
 
 void MakcuConnection::sendCommand(const std::string& command)
