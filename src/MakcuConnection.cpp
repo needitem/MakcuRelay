@@ -585,7 +585,7 @@ void MakcuConnection::buttonPollingThreadFunc()
 {
     // Test what commands the device supports
     sendCommand("km.help()");
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::seconds(3));
     
     while (polling_enabled_.load() && is_open_) {
         sendCommand("km.left()");
