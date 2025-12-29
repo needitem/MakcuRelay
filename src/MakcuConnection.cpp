@@ -586,27 +586,24 @@ void MakcuConnection::buttonPollingThreadFunc()
     // Wait for connection
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
-    // Test different button query commands
-    std::cout << "[Makcu] Testing button commands..." << std::endl;
+    // Test catch/lock commands for side buttons
+    std::cout << "[Makcu] Testing catch/lock commands..." << std::endl;
     
-    // These might work based on API naming patterns
-    sendCommand("km.side1()");
+    sendCommand("km.catch_ms1()");
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
-    sendCommand("km.side2()");
+    sendCommand("km.catch_ms2()");
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
-    sendCommand("km.m4()");
+    sendCommand("km.lock_ms1()");
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
-    sendCommand("km.m5()");
+    sendCommand("km.lock_ms2()");
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     
-    sendCommand("km.xbutton1()");
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    
-    sendCommand("km.xbutton2()");
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    // Try help to see all commands
+    sendCommand("km.help()");
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     
     std::cout << "[Makcu] Starting polling..." << std::endl;
     
